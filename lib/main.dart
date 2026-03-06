@@ -27,6 +27,18 @@ class BasculaPage extends StatefulWidget {
 
 class _BasculaPageState extends State<BasculaPage> {
   double pesoKg = 0.0;
+  double impedancia = 0;
+
+  double biIndex = 0;
+  double conductividad = 0;
+  double indiceCorporal = 0;
+
+  List<int> ultimoPaquete = [];
+  String hexString = "";
+
+  String bytesToHex(List<int> bytes) {
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(" ");
+  }
 
   @override
   void initState() {
@@ -65,31 +77,28 @@ class _BasculaPageState extends State<BasculaPage> {
 
     final bytes = data.values.first;
 
-    print("=================================");
-    print("BYTES RECIBIDOS (${bytes.length})");
+    setState(() {
+      ultimoPaquete = bytes;
+      hexString = bytesToHex(bytes);
+    });
 
-    // imprimir cada byte con su posición
-    for (int i = 0; i < bytes.length; i++) {
-      print("byte[$i] = ${bytes[i]}");
-    }
-
-    // probar combinaciones posibles de 2 bytes
-    for (int i = 0; i < bytes.length - 1; i++) {
-      int bigEndian = (bytes[i] << 8) | bytes[i + 1];
-      int littleEndian = (bytes[i + 1] << 8) | bytes[i];
-
-      print("pos[$i-$i+1]  bigEndian=$bigEndian  littleEndian=$littleEndian");
-    }
-
-    // lectura actual de peso
+    // lectura del peso
     if (bytes.length >= 2) {
       int rawWeight = (bytes[0] << 8) | bytes[1];
-      double nuevoPeso = rawWeight / 100.0;
+      double peso = rawWeight / 100.0;
+      // IMPEDANCIA
+      int rawImpedancia = (bytes[6] << 8) | bytes[7];
+      double imp = rawImpedancia / 10.0;
 
-      print("PESO DETECTADO: $nuevoPeso kg");
+      if (imp == 0) return;
 
       setState(() {
-        pesoKg = nuevoPeso;
+        pesoKg = peso;
+        impedancia = imp;
+
+        biIndex = peso / imp;
+        conductividad = 1 / imp;
+        indiceCorporal = (peso * 1000) / imp;
       });
     }
   }
@@ -98,13 +107,68 @@ class _BasculaPageState extends State<BasculaPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text("Báscula BLE")),
-      body: Center(
+      body: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
               "${pesoKg.toStringAsFixed(2)} kg",
               style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold),
+            ),
+            Text("Impedancia: ${impedancia.toStringAsFixed(0)} Ω"),
+
+            Text("Índice de Bioimpedancia (BI) Index: ${biIndex.toStringAsFixed(3)}"),
+            
+            //  La conductividad eléctrica es el inverso de la resistencia
+            Text("Conductividad: ${conductividad.toStringAsFixed(5)}"),
+            
+            //  Otra forma de visualizar cambios (Es muy sensible a los cambios de impedancia)
+            Text("Índice corporal: ${indiceCorporal.toStringAsFixed(1)}"),
+
+            const SizedBox(height: 20),
+
+            const Text(
+              "Paquete BLE (HEX)",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            Container(
+              padding: const EdgeInsets.all(10),
+              color: Colors.black,
+              width: double.infinity,
+              child: Text(
+                hexString,
+                style: const TextStyle(
+                  color: Colors.green,
+                  fontFamily: "monospace",
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            const Text(
+              "Bytes individuales",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+
+            Expanded(
+              child: ListView.builder(
+                itemCount: ultimoPaquete.length,
+                itemBuilder: (context, index) {
+                  int byte = ultimoPaquete[index];
+
+                  return ListTile(
+                    title: Text("Byte [$index]"),
+                    subtitle: Text("Decimal: $byte"),
+                    trailing: Text(
+                      "0x${byte.toRadixString(16).padLeft(2, '0')}",
+                      style: const TextStyle(fontFamily: "monospace"),
+                    ),
+                  );
+                },
+              ),
             ),
           ],
         ),
