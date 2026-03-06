@@ -72,35 +72,66 @@ class _BasculaPageState extends State<BasculaPage> {
     });
   }
 
+  // void procesarManufacturerData(Map<int, List<int>> data) {
+  //   if (data.isEmpty) return;
+
+  //   final bytes = data.values.first;
+
+  //   setState(() {
+  //     ultimoPaquete = bytes;
+  //     hexString = bytesToHex(bytes);
+  //   });
+
+  //   // lectura del peso
+  //   if (bytes.length >= 2) {
+  //     int rawWeight = (bytes[0] << 8) | bytes[1];
+  //     double peso = rawWeight / 100.0;
+  //     // IMPEDANCIA
+  //     int rawImpedancia = (bytes[6] << 8) | bytes[7];
+  //     double imp = rawImpedancia / 10.0;
+
+  //     if (imp == 0) return;
+
+  //     setState(() {
+  //       pesoKg = peso;
+  //       impedancia = imp;
+
+  //       biIndex = peso / imp;
+  //       conductividad = 1 / imp;
+  //       indiceCorporal = (peso * 1000) / imp;
+  //     });
+  //   }
+  // }
+
   void procesarManufacturerData(Map<int, List<int>> data) {
     if (data.isEmpty) return;
 
     final bytes = data.values.first;
 
+    double peso = 0;
+    double imp = 0;
+
+    if (bytes.length >= 8) {
+      int rawWeight = (bytes[0] << 8) | bytes[1];
+      peso = rawWeight / 100.0;
+
+      int rawImpedancia = (bytes[6] << 8) | bytes[7];
+      imp = rawImpedancia / 10.0;
+    }
+
     setState(() {
       ultimoPaquete = bytes;
       hexString = bytesToHex(bytes);
-    });
 
-    // lectura del peso
-    if (bytes.length >= 2) {
-      int rawWeight = (bytes[0] << 8) | bytes[1];
-      double peso = rawWeight / 100.0;
-      // IMPEDANCIA
-      int rawImpedancia = (bytes[6] << 8) | bytes[7];
-      double imp = rawImpedancia / 10.0;
-
-      if (imp == 0) return;
-
-      setState(() {
+      if (imp != 0) {
         pesoKg = peso;
         impedancia = imp;
 
         biIndex = peso / imp;
         conductividad = 1 / imp;
         indiceCorporal = (peso * 1000) / imp;
-      });
-    }
+      }
+    });
   }
 
   @override
@@ -118,11 +149,13 @@ class _BasculaPageState extends State<BasculaPage> {
             ),
             Text("Impedancia: ${impedancia.toStringAsFixed(0)} Ω"),
 
-            Text("Índice de Bioimpedancia (BI) Index: ${biIndex.toStringAsFixed(3)}"),
-            
+            Text(
+              "Índice de Bioimpedancia (BI) Index: ${biIndex.toStringAsFixed(3)}",
+            ),
+
             //  La conductividad eléctrica es el inverso de la resistencia
             Text("Conductividad: ${conductividad.toStringAsFixed(5)}"),
-            
+
             //  Otra forma de visualizar cambios (Es muy sensible a los cambios de impedancia)
             Text("Índice corporal: ${indiceCorporal.toStringAsFixed(1)}"),
 
