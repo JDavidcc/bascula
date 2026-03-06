@@ -58,7 +58,7 @@ class _BasculaPageState extends State<BasculaPage> {
 
   void iniciarScan() async {
     // iniciar escaneo BLE
-    FlutterBluePlus.startScan(timeout: const Duration(minutes: 1));
+    FlutterBluePlus.startScan(timeout: const Duration(minutes: 10));
 
     FlutterBluePlus.scanResults.listen((results) {
       for (ScanResult r in results) {
