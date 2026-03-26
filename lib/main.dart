@@ -73,8 +73,8 @@ class _BasculaPageState extends State<BasculaPage> {
   List<int> ultimoPaquete = [];
 
   final user = UserProfile(
-    edad: 25,
-    altura: 170,
+    edad: 22,
+    altura: 181,
     hombre: true,
   );
 
@@ -213,7 +213,7 @@ class _BasculaPageState extends State<BasculaPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Báscula estilo OKOK")),
+      appBar: AppBar(title: const Text("Báscula BLE")),
       body: Padding(
         padding: const EdgeInsets.all(12),
         child: ListView(
