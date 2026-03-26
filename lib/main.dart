@@ -18,6 +18,44 @@ class MyApp extends StatelessWidget {
   }
 }
 
+class UserProfile {
+  int edad;
+  double altura;
+  bool hombre;
+
+  UserProfile({
+    required this.edad,
+    required this.altura,
+    required this.hombre,
+  });
+}
+
+class BodyMetrics {
+  double peso;
+  double bmi;
+  double grasa;
+  double masaMuscular;
+  double agua;
+  double grasaVisceral;
+  double hueso;
+  double metabolismo;
+  double proteina;
+  double edadMetabolica;
+
+  BodyMetrics({
+    required this.peso,
+    required this.bmi,
+    required this.grasa,
+    required this.masaMuscular,
+    required this.agua,
+    required this.grasaVisceral,
+    required this.hueso,
+    required this.metabolismo,
+    required this.proteina,
+    required this.edadMetabolica,
+  });
+}
+
 class BasculaPage extends StatefulWidget {
   const BasculaPage({super.key});
 
@@ -26,19 +64,19 @@ class BasculaPage extends StatefulWidget {
 }
 
 class _BasculaPageState extends State<BasculaPage> {
-  double pesoKg = 0.0;
+  double pesoKg = 0;
   double impedancia = 0;
 
-  double biIndex = 0;
-  double conductividad = 0;
-  double indiceCorporal = 0;
+  BodyMetrics? metrics;
 
-  List<int> ultimoPaquete = [];
   String hexString = "";
+  List<int> ultimoPaquete = [];
 
-  String bytesToHex(List<int> bytes) {
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(" ");
-  }
+  final user = UserProfile(
+    edad: 25,
+    altura: 170,
+    hombre: true,
+  );
 
   @override
   void initState() {
@@ -56,92 +94,129 @@ class _BasculaPageState extends State<BasculaPage> {
     iniciarScan();
   }
 
-  void iniciarScan() async {
-    // iniciar escaneo BLE
+  void iniciarScan() {
     FlutterBluePlus.startScan(timeout: const Duration(minutes: 10));
 
     FlutterBluePlus.scanResults.listen((results) {
       for (ScanResult r in results) {
-        // FILTRO POR MAC
-        if (r.device.remoteId.str != "24:16:51:9D:DE:4F") {
-          continue;
-        }
+        if (r.device.remoteId.str != "24:16:51:9D:DE:4F") continue;
 
         procesarManufacturerData(r.advertisementData.manufacturerData);
       }
     });
   }
 
-  // void procesarManufacturerData(Map<int, List<int>> data) {
-  //   if (data.isEmpty) return;
-
-  //   final bytes = data.values.first;
-
-  //   setState(() {
-  //     ultimoPaquete = bytes;
-  //     hexString = bytesToHex(bytes);
-  //   });
-
-  //   // lectura del peso
-  //   if (bytes.length >= 2) {
-  //     int rawWeight = (bytes[0] << 8) | bytes[1];
-  //     double peso = rawWeight / 100.0;
-  //     // IMPEDANCIA
-  //     int rawImpedancia = (bytes[6] << 8) | bytes[7];
-  //     double imp = rawImpedancia / 10.0;
-
-  //     if (imp == 0) return;
-
-  //     setState(() {
-  //       pesoKg = peso;
-  //       impedancia = imp;
-
-  //       biIndex = peso / imp;
-  //       conductividad = 1 / imp;
-  //       indiceCorporal = (peso * 1000) / imp;
-  //     });
-  //   }
-  // }
-
   void procesarManufacturerData(Map<int, List<int>> data) {
     if (data.isEmpty) return;
 
     final bytes = data.values.first;
 
-    double peso = 0;
-    double imp = 0;
+    if (bytes.length < 8) return;
 
-    if (bytes.length >= 8) {
-      int rawWeight = (bytes[0] << 8) | bytes[1];
-      peso = rawWeight / 100.0;
+    final rawWeight = (bytes[0] << 8) | bytes[1];
+    final peso = rawWeight / 100.0;
 
-      int rawImpedancia = (bytes[6] << 8) | bytes[7];
-      imp = rawImpedancia / 10.0;
-    }
+    final rawImp = (bytes[6] << 8) | bytes[7];
+    final imp = rawImp / 10.0;
 
     setState(() {
+      pesoKg = peso;
+      impedancia = imp;
       ultimoPaquete = bytes;
-      hexString = bytesToHex(bytes);
+      hexString = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(" ");
 
-      if (imp != 0) {
-        pesoKg = peso;
-        impedancia = imp;
-
-        biIndex = peso / imp;
-        conductividad = 1 / imp;
-        indiceCorporal = (peso * 1000) / imp;
-      }
+      metrics = calcularTodo(
+        peso: pesoKg,
+        impedancia: impedancia,
+        user: user,
+      );
     });
+  }
+
+  // ================= ALGORITMOS =================
+
+  double calcularBMI(double peso, double altura) {
+    return peso / ((altura / 100) * (altura / 100));
+  }
+
+  double grasaCorporal(double bmi, int edad, bool hombre) {
+    double sexo = hombre ? 1 : 0;
+    return (1.2 * bmi) + (0.23 * edad) - (10.8 * sexo) - 5.4;
+  }
+
+  double agua(double grasa) => 100 - grasa;
+
+  double masaMuscular(double peso, double grasa) {
+    return peso * (1 - grasa / 100);
+  }
+
+  double grasaVisceral(double bmi, int edad) {
+    return (bmi * 0.5) + (edad * 0.1);
+  }
+
+  double metabolismo(double peso, double altura, int edad, bool hombre) {
+    if (hombre) {
+      return 10 * peso + 6.25 * altura - 5 * edad + 5;
+    } else {
+      return 10 * peso + 6.25 * altura - 5 * edad - 161;
+    }
+  }
+
+  double masaOsea(double peso) => peso * 0.04;
+
+  double proteina(double masaMuscular) => masaMuscular * 0.2;
+
+  double edadMetabolica(double bmr, int edad) {
+    return edad + ((bmr - 1500) / 100);
+  }
+
+  BodyMetrics calcularTodo({
+    required double peso,
+    required double impedancia,
+    required UserProfile user,
+  }) {
+    final bmi = calcularBMI(peso, user.altura);
+    final grasa = grasaCorporal(bmi, user.edad, user.hombre);
+    final aguaVal = agua(grasa);
+    final musculo = masaMuscular(peso, grasa);
+    final visceral = grasaVisceral(bmi, user.edad);
+    final bmr = metabolismo(peso, user.altura, user.edad, user.hombre);
+    final hueso = masaOsea(peso);
+    final prot = proteina(musculo);
+    final edadMeta = edadMetabolica(bmr, user.edad);
+
+    return BodyMetrics(
+      peso: peso,
+      bmi: bmi,
+      grasa: grasa,
+      masaMuscular: musculo,
+      agua: aguaVal,
+      grasaVisceral: visceral,
+      hueso: hueso,
+      metabolismo: bmr,
+      proteina: prot,
+      edadMetabolica: edadMeta,
+    );
+  }
+
+  // ================= UI =================
+
+  Widget card(String titulo, String valor) {
+    return Card(
+      child: ListTile(
+        title: Text(titulo),
+        trailing: Text(valor, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Báscula BLE")),
+      appBar: AppBar(title: const Text("Báscula estilo OKOK")),
       body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        padding: const EdgeInsets.all(12),
+        child: ListView(
           children: [
             Text(
               "${pesoKg.toStringAsFixed(2)} kg",
@@ -149,58 +224,29 @@ class _BasculaPageState extends State<BasculaPage> {
             ),
             Text("Impedancia: ${impedancia.toStringAsFixed(0)} Ω"),
 
-            Text(
-              "Índice de Bioimpedancia (BI) Index: ${biIndex.toStringAsFixed(3)}",
-            ),
+            const SizedBox(height: 10),
 
-            //  La conductividad eléctrica es el inverso de la resistencia
-            Text("Conductividad: ${conductividad.toStringAsFixed(5)}"),
-
-            //  Otra forma de visualizar cambios (Es muy sensible a los cambios de impedancia)
-            Text("Índice corporal: ${indiceCorporal.toStringAsFixed(1)}"),
+            if (metrics != null) ...[
+              card("BMI", metrics!.bmi.toStringAsFixed(1)),
+              card("Grasa corporal %", metrics!.grasa.toStringAsFixed(1)),
+              card("Agua %", metrics!.agua.toStringAsFixed(1)),
+              card("Músculo (kg)", metrics!.masaMuscular.toStringAsFixed(1)),
+              card("Grasa visceral", metrics!.grasaVisceral.toStringAsFixed(1)),
+              card("Hueso (kg)", metrics!.hueso.toStringAsFixed(1)),
+              card("Metabolismo (kcal)", metrics!.metabolismo.toStringAsFixed(0)),
+              card("Proteína", metrics!.proteina.toStringAsFixed(1)),
+              card("Edad metabólica", metrics!.edadMetabolica.toStringAsFixed(1)),
+            ],
 
             const SizedBox(height: 20),
 
-            const Text(
-              "Paquete BLE (HEX)",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-
+            const Text("Paquete BLE"),
             Container(
-              padding: const EdgeInsets.all(10),
               color: Colors.black,
-              width: double.infinity,
+              padding: const EdgeInsets.all(10),
               child: Text(
                 hexString,
-                style: const TextStyle(
-                  color: Colors.green,
-                  fontFamily: "monospace",
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            const Text(
-              "Bytes individuales",
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            Expanded(
-              child: ListView.builder(
-                itemCount: ultimoPaquete.length,
-                itemBuilder: (context, index) {
-                  int byte = ultimoPaquete[index];
-
-                  return ListTile(
-                    title: Text("Byte [$index]"),
-                    subtitle: Text("Decimal: $byte"),
-                    trailing: Text(
-                      "0x${byte.toRadixString(16).padLeft(2, '0')}",
-                      style: const TextStyle(fontFamily: "monospace"),
-                    ),
-                  );
-                },
+                style: const TextStyle(color: Colors.green),
               ),
             ),
           ],
