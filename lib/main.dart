@@ -23,11 +23,7 @@ class UserProfile {
   double altura;
   bool hombre;
 
-  UserProfile({
-    required this.edad,
-    required this.altura,
-    required this.hombre,
-  });
+  UserProfile({required this.edad, required this.altura, required this.hombre});
 }
 
 class BodyMetrics {
@@ -72,11 +68,7 @@ class _BasculaPageState extends State<BasculaPage> {
   String hexString = "";
   List<int> ultimoPaquete = [];
 
-  final user = UserProfile(
-    edad: 22,
-    altura: 181,
-    hombre: true,
-  );
+  final user = UserProfile(edad: 26, altura: 170, hombre: true);
 
   @override
   void initState() {
@@ -123,37 +115,128 @@ class _BasculaPageState extends State<BasculaPage> {
       pesoKg = peso;
       impedancia = imp;
       ultimoPaquete = bytes;
-      hexString = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join(" ");
+      hexString = bytes
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join(" ");
 
-      metrics = calcularTodo(
-        peso: pesoKg,
-        impedancia: impedancia,
-        user: user,
-      );
+      metrics = calcularTodo(peso: pesoKg, impedancia: impedancia, user: user);
     });
   }
 
+  // // ================= ALGORITMOS =================
+
+  // double calcularBMI(double peso, double altura) {
+  //   return peso / ((altura / 100) * (altura / 100));
+  // }
+
+  // double grasaCorporal(double bmi, int edad, bool hombre) {
+  //   double sexo = hombre ? 1 : 0;
+  //   return (1.2 * bmi) + (0.23 * edad) - (10.8 * sexo) - 5.4;
+  // }
+
+  // double agua(double grasa) => 100 - grasa;
+
+  // double masaMuscular(double peso, double grasa) {
+  //   return peso * (1 - grasa / 100);
+  // }
+
+  // double grasaVisceral(double bmi, int edad) {
+  //   return (bmi * 0.5) + (edad * 0.1);
+  // }
+
+  // double metabolismo(double peso, double altura, int edad, bool hombre) {
+  //   if (hombre) {
+  //     return 10 * peso + 6.25 * altura - 5 * edad + 5;
+  //   } else {
+  //     return 10 * peso + 6.25 * altura - 5 * edad - 161;
+  //   }
+  // }
+
+  // double masaOsea(double peso) => peso * 0.04;
+
+  // double proteina(double masaMuscular) => masaMuscular * 0.2;
+
+  // double edadMetabolica(double bmr, int edad) {
+  //   return edad + ((bmr - 1500) / 100);
+  // }
+
+  // BodyMetrics calcularTodo({
+  //   required double peso,
+  //   required double impedancia,
+  //   required UserProfile user,
+  // }) {
+  //   final bmi = calcularBMI(peso, user.altura);
+  //   final grasa = grasaCorporal(bmi, user.edad, user.hombre);
+  //   final aguaVal = agua(grasa);
+  //   final musculo = masaMuscular(peso, grasa);
+  //   final visceral = grasaVisceral(bmi, user.edad);
+  //   final bmr = metabolismo(peso, user.altura, user.edad, user.hombre);
+  //   final hueso = masaOsea(peso);
+  //   final prot = proteina(musculo);
+  //   final edadMeta = edadMetabolica(bmr, user.edad);
+
+  //   return BodyMetrics(
+  //     peso: peso,
+  //     bmi: bmi,
+  //     grasa: grasa,
+  //     masaMuscular: musculo,
+  //     agua: aguaVal,
+  //     grasaVisceral: visceral,
+  //     hueso: hueso,
+  //     metabolismo: bmr,
+  //     proteina: prot,
+  //     edadMetabolica: edadMeta,
+  //   );
+  // }
+
   // ================= ALGORITMOS =================
 
+  // BMI
   double calcularBMI(double peso, double altura) {
     return peso / ((altura / 100) * (altura / 100));
   }
 
-  double grasaCorporal(double bmi, int edad, bool hombre) {
+  // Grasa corporal usando BIA
+  double grasaCorporalBIA({
+    required double peso,
+    required double altura,
+    required double impedancia,
+    required int edad,
+    required bool hombre,
+  }) {
     double sexo = hombre ? 1 : 0;
-    return (1.2 * bmi) + (0.23 * edad) - (10.8 * sexo) - 5.4;
+
+    double grasa =
+        (0.3 * peso) +
+        (0.15 * (altura * altura / impedancia)) +
+        (0.1 * edad) -
+        (8 * sexo) -
+        10;
+
+    return grasa;
   }
 
-  double agua(double grasa) => 100 - grasa;
+  double ajustarGrasa(double grasaRaw) {
+    return (grasaRaw * 1.85).clamp(5, 60);
+  }
 
+  // Agua corporal
+  double agua(double grasa) {
+    return (70 - grasa * 0.5).clamp(30, 65);
+  }
+
+  // Masa muscular (no es igual a masa libre de grasa)
   double masaMuscular(double peso, double grasa) {
-    return peso * (1 - grasa / 100);
+    double masaLibre = peso * (1 - grasa / 100);
+    return (masaLibre * 0.92); // 🔥 antes 0.65
   }
 
-  double grasaVisceral(double bmi, int edad) {
-    return (bmi * 0.5) + (edad * 0.1);
+  // Grasa visceral
+  double grasaVisceral(double grasa, int edad) {
+    return ((grasa * 0.8) + (edad * 0.2)).clamp(1, 30);
   }
 
+  // Metabolismo
   double metabolismo(double peso, double altura, int edad, bool hombre) {
     if (hombre) {
       return 10 * peso + 6.25 * altura - 5 * edad + 5;
@@ -162,12 +245,19 @@ class _BasculaPageState extends State<BasculaPage> {
     }
   }
 
-  double masaOsea(double peso) => peso * 0.04;
+  // Masa ósea
+  double masaOsea(double peso) {
+    return (peso * 0.025).clamp(1.5, 4);
+  }
 
-  double proteina(double masaMuscular) => masaMuscular * 0.2;
+  // Proteína
+  double proteina(double masaMuscular) {
+    return (masaMuscular * 0.20);
+  }
 
+  // Edad metabólica
   double edadMetabolica(double bmr, int edad) {
-    return edad + ((bmr - 1500) / 100);
+    return (edad + ((bmr - 1400) / 80)).clamp(10, 80);
   }
 
   BodyMetrics calcularTodo({
@@ -176,10 +266,20 @@ class _BasculaPageState extends State<BasculaPage> {
     required UserProfile user,
   }) {
     final bmi = calcularBMI(peso, user.altura);
-    final grasa = grasaCorporal(bmi, user.edad, user.hombre);
+
+    final grasaRaw = grasaCorporalBIA(
+      peso: peso,
+      altura: user.altura,
+      impedancia: impedancia,
+      edad: user.edad,
+      hombre: user.hombre,
+    );
+
+    final grasa = ajustarGrasa(grasaRaw);
+
     final aguaVal = agua(grasa);
     final musculo = masaMuscular(peso, grasa);
-    final visceral = grasaVisceral(bmi, user.edad);
+    final visceral = grasaVisceral(grasa, user.edad);
     final bmr = metabolismo(peso, user.altura, user.edad, user.hombre);
     final hueso = masaOsea(peso);
     final prot = proteina(musculo);
@@ -205,7 +305,10 @@ class _BasculaPageState extends State<BasculaPage> {
     return Card(
       child: ListTile(
         title: Text(titulo),
-        trailing: Text(valor, style: const TextStyle(fontWeight: FontWeight.bold)),
+        trailing: Text(
+          valor,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -233,9 +336,15 @@ class _BasculaPageState extends State<BasculaPage> {
               card("Músculo (kg)", metrics!.masaMuscular.toStringAsFixed(1)),
               card("Grasa visceral", metrics!.grasaVisceral.toStringAsFixed(1)),
               card("Hueso (kg)", metrics!.hueso.toStringAsFixed(1)),
-              card("Metabolismo (kcal)", metrics!.metabolismo.toStringAsFixed(0)),
+              card(
+                "Metabolismo (kcal)",
+                metrics!.metabolismo.toStringAsFixed(0),
+              ),
               card("Proteína", metrics!.proteina.toStringAsFixed(1)),
-              card("Edad metabólica", metrics!.edadMetabolica.toStringAsFixed(1)),
+              card(
+                "Edad metabólica",
+                metrics!.edadMetabolica.toStringAsFixed(1),
+              ),
             ],
 
             const SizedBox(height: 20),
